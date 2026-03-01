@@ -206,7 +206,7 @@
 
   <!-- ヘッダー -->
   <div id="header">
-    <h1>バーコードスキャナー <span style="font-size:11px;font-weight:400;opacity:0.6;">ver.1-5</span></h1>
+    <h1>バーコードスキャナー <span style="font-size:11px;font-weight:400;opacity:0.6;">ver.2-0</span></h1>
     <div style="display:flex;gap:8px;align-items:center;">
       <button id="torch-btn" onclick="toggleTorch()" style="display:none;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:18px;width:36px;height:36px;border-radius:50%;cursor:pointer;line-height:1;" title="ライト">&#x1F526;</button>
       <button id="close-btn" onclick="closeScanner()">閉じる</button>
@@ -251,13 +251,15 @@
   <!-- ZXingライブラリ -->
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
   <script>
-    var reader     = null;   // ZXing fallback
-    var detected   = false;
-    var _videoTrack    = null;
-    var _rafId         = null;  // BarcodeDetector ループ用
-    var _detector      = null;  // BarcodeDetector インスタンス
-    var _torchOn       = false; // ライト状態
-    var _refocusTimer  = null;  // 定期リフォーカス用タイマー
+    var reader        = null;   // ZXing fallback
+    var detected      = false;
+    var _videoTrack   = null;
+    var _rafId        = null;   // video フレームスキャン用 rAF
+    var _scanTimer    = null;   // スチル撮影スキャン用タイマー
+    var _detector     = null;   // BarcodeDetector インスタンス
+    var _imageCapture = null;   // ImageCapture（スチル撮影でフォーカスを効かせる）
+    var _torchOn      = false;  // ライト状態
+    var _refocusTimer = null;   // 定期リフォーカス用タイマー
 
     // ---- 連続確認カウンタ（誤読み防止） ----
     var _lastRawCode    = '';
@@ -317,13 +319,14 @@
     // ---- カメラ停止 ----
     function stopCamera() {
       if (_refocusTimer) { clearInterval(_refocusTimer); _refocusTimer = null; }
-      // ライトを消してからストップ
+      if (_scanTimer)    { clearTimeout(_scanTimer);     _scanTimer    = null; }
       if (_torchOn && _videoTrack) {
         try { _videoTrack.applyConstraints({ advanced: [{ torch: false }] }); } catch(e) {}
         _torchOn = false;
       }
-      _videoTrack = null;
-      _detector   = null;
+      _videoTrack   = null;
+      _detector     = null;
+      _imageCapture = null;
       if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null; }
       if (reader) {
         try { reader.reset(); } catch(e) {}
@@ -452,6 +455,12 @@
       }).then(function(stream) {
         _videoTrack = stream.getVideoTracks()[0] || null;
         video.srcObject = stream;
+
+        // ImageCapture が使える場合はスチル撮影モードでフォーカスを解決
+        if (_videoTrack && window.ImageCapture) {
+          try { _imageCapture = new ImageCapture(_videoTrack); } catch(e) {}
+        }
+
         return new Promise(function(resolve) {
           video.onloadedmetadata = resolve;
         });
@@ -462,31 +471,81 @@
       }).then(function(formats) {
         _detector = new BarcodeDetector({ formats: formats });
         hideLoading();
-        setStatus('スキャン待機中 [ネイティブ]... バーコードを枠内に');
-        triggerSingleShotFocus();
-        startAutoRefocus();
         showTorchButtonIfSupported();
-        scheduleNativeScan(video);
+        if (_imageCapture) {
+          // ★ スチル撮影モード: takePhoto() がシャッターごとにAFを効かせる
+          setStatus('スキャン待機中 [スチル]... バーコードを枠内に合わせてください');
+          schedulePhotoScan();
+        } else {
+          // フォールバック: video フレーム解析
+          setStatus('スキャン待機中 [ネイティブ]... バーコードを枠内に');
+          triggerSingleShotFocus();
+          startAutoRefocus();
+          scheduleNativeScan(video);
+        }
       }).catch(function(err) {
-        // カメラエラーはそのまま表示、BarcodeDetector初期化失敗ならデフォルトで再試行
         if (err.name === 'NotAllowedError' || err.name === 'NotFoundError' || err.name === 'NotReadableError') {
           hideLoading();
           handleCameraError(err);
         } else {
-          // getSupportedFormats 失敗 → デフォルトフォーマットで起動
           try {
             _detector = new BarcodeDetector();
             hideLoading();
-            setStatus('スキャン待機中 [ネイティブ]... バーコードを枠内に');
-            triggerSingleShotFocus();
-            startAutoRefocus();
             showTorchButtonIfSupported();
-            scheduleNativeScan(video);
+            if (_imageCapture) {
+              setStatus('スキャン待機中 [スチル]... バーコードを枠内に合わせてください');
+              schedulePhotoScan();
+            } else {
+              setStatus('スキャン待機中 [ネイティブ]... バーコードを枠内に');
+              triggerSingleShotFocus();
+              startAutoRefocus();
+              scheduleNativeScan(video);
+            }
           } catch(e) {
             hideLoading();
             setStatus('バーコード検出を起動できませんでした', 'error');
           }
         }
+      });
+    }
+
+    // ================================================================
+    // スチル撮影スキャン（ImageCapture.takePhoto() でAFを強制適用）
+    // ================================================================
+    function schedulePhotoScan() {
+      if (detected || !_imageCapture || !_detector) return;
+      _imageCapture.takePhoto().then(function(blob) {
+        return createImageBitmap(blob);
+      }).then(function(bitmap) {
+        // 検出後すぐに bitmap を解放してメモリを節約
+        return _detector.detect(bitmap).then(function(codes) {
+          bitmap.close();
+          return codes;
+        }, function(err) {
+          bitmap.close();
+          throw err;
+        });
+      }).then(function(codes) {
+        if (detected) return;
+        if (codes.length > 0) {
+          var code = codes[0].rawValue;
+          if (code === _lastRawCode) {
+            _confirmCount++;
+            if (_confirmCount >= _CONFIRM_NEEDED) {
+              sendBarcode(code);
+              return;
+            }
+          } else {
+            _lastRawCode  = code;
+            _confirmCount = 1;
+          }
+        } else {
+          _lastRawCode  = '';
+          _confirmCount = 0;
+        }
+        _scanTimer = setTimeout(schedulePhotoScan, 300);
+      }).catch(function() {
+        if (!detected) _scanTimer = setTimeout(schedulePhotoScan, 500);
       });
     }
 
