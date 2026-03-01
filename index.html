@@ -110,6 +110,23 @@
       padding: 0 24px;
     }
 
+    /* タップフォーカスリング */
+    #focus-ring {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      pointer-events: none;
+      display: none;
+      transform: translate(-50%, -50%);
+      animation: focusPulse 0.4s ease-out forwards;
+    }
+    @keyframes focusPulse {
+      0%   { opacity: 1; transform: translate(-50%, -50%) scale(1.4); }
+      100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+    }
+
     /* ---- ステータスメッセージ ---- */
     #status {
       position: absolute;
@@ -189,7 +206,7 @@
 
   <!-- ヘッダー -->
   <div id="header">
-    <h1>バーコードスキャナー <span style="font-size:11px;font-weight:400;opacity:0.6;">ver.1-1</span></h1>
+    <h1>バーコードスキャナー <span style="font-size:11px;font-weight:400;opacity:0.6;">ver.1-2</span></h1>
     <button id="close-btn" onclick="closeScanner()">閉じる</button>
   </div>
 
@@ -203,6 +220,9 @@
 
     <video id="video" autoplay playsinline muted></video>
 
+    <!-- タップフォーカスリング -->
+    <div id="focus-ring"></div>
+
     <!-- スキャン枠オーバーレイ -->
     <div id="overlay">
       <div id="scan-frame">
@@ -212,7 +232,7 @@
         <div class="corner br"></div>
         <div id="scan-line"></div>
       </div>
-      <p id="overlay-hint">QRコード・バーコードを枠内に合わせてください</p>
+      <p id="overlay-hint">バーコードを枠内に合わせてください<br><span style="font-size:11px;opacity:0.7;">ぼやける場合は画面をタップ</span></p>
     </div>
 
     <!-- ステータス -->
@@ -230,6 +250,7 @@
   <script>
     var reader = null;
     var detected = false;
+    var _videoTrack = null;
 
     // ---- 結果をGASアプリに返す ----
     function sendBarcode(code) {
@@ -281,6 +302,7 @@
 
     // ---- カメラ停止 ----
     function stopCamera() {
+      _videoTrack = null;
       if (reader) {
         try { reader.reset(); } catch(e) {}
         reader = null;
@@ -291,6 +313,44 @@
         video.srcObject = null;
       }
     }
+
+    // ---- オートフォーカス適用 ----
+    function applyAutofocus(track) {
+      if (!track || !track.getCapabilities) return;
+      var caps = track.getCapabilities();
+      if (caps.focusMode && caps.focusMode.includes('continuous')) {
+        track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(function() {});
+      }
+    }
+
+    // ---- タップでフォーカス再調整 ----
+    document.getElementById('camera-wrap').addEventListener('click', function(e) {
+      var ring = document.getElementById('focus-ring');
+      ring.style.left = e.clientX + 'px';
+      ring.style.top  = e.clientY + 'px';
+      ring.style.display = 'block';
+      // アニメーションをリセットして再生
+      ring.style.animation = 'none';
+      ring.offsetWidth; // reflow
+      ring.style.animation = '';
+      setTimeout(function() { ring.style.display = 'none'; }, 500);
+
+      if (!_videoTrack) return;
+      var caps = _videoTrack.getCapabilities ? _videoTrack.getCapabilities() : {};
+      // single-shot でピントを合わせ直してから continuous に戻す
+      if (caps.focusMode && caps.focusMode.includes('single-shot')) {
+        _videoTrack.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] })
+          .then(function() {
+            if (caps.focusMode.includes('continuous')) {
+              setTimeout(function() {
+                _videoTrack && _videoTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(function() {});
+              }, 400);
+            }
+          }).catch(function() {});
+      } else if (caps.focusMode && caps.focusMode.includes('continuous')) {
+        _videoTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(function() {});
+      }
+    });
 
     // ---- カメラ起動 ----
     function startScanner() {
@@ -304,13 +364,13 @@
 
       reader = new ZXing.BrowserMultiFormatReader();
 
+      // 低解像度にするとオートフォーカスが効きやすい
       reader.decodeFromConstraints(
         {
           video: {
             facingMode: { ideal: 'environment' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            focusMode: { ideal: 'continuous' }
+            width:  { ideal: 640 },
+            height: { ideal: 480 }
           }
         },
         video,
@@ -322,17 +382,12 @@
         }
       ).then(function() {
         hideLoading();
-        setStatus('スキャン待機中... バーコードを枠内に合わせてください');
+        setStatus('スキャン待機中... ぼやける場合は画面をタップ');
 
-        // 連続オートフォーカスを有効化（非対応端末はスキップ）
+        // ビデオトラックを保持してフォーカス制御に利用
         if (video.srcObject) {
-          var track = video.srcObject.getVideoTracks()[0];
-          if (track && track.getCapabilities) {
-            var caps = track.getCapabilities();
-            if (caps.focusMode && caps.focusMode.includes('continuous')) {
-              track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(function() {});
-            }
-          }
+          _videoTrack = video.srcObject.getVideoTracks()[0] || null;
+          applyAutofocus(_videoTrack);
         }
       }).catch(function(err) {
         hideLoading();
