@@ -206,7 +206,7 @@
 
   <!-- ヘッダー -->
   <div id="header">
-    <h1>バーコードスキャナー <span style="font-size:11px;font-weight:400;opacity:0.6;">ver.1-2</span></h1>
+    <h1>バーコードスキャナー <span style="font-size:11px;font-weight:400;opacity:0.6;">ver.1-3</span></h1>
     <button id="close-btn" onclick="closeScanner()">閉じる</button>
   </div>
 
@@ -248,9 +248,11 @@
   <!-- ZXingライブラリ -->
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
   <script>
-    var reader = null;
-    var detected = false;
+    var reader     = null;   // ZXing fallback
+    var detected   = false;
     var _videoTrack = null;
+    var _rafId      = null;  // BarcodeDetector ループ用
+    var _detector   = null;  // BarcodeDetector インスタンス
 
     // ---- 結果をGASアプリに返す ----
     function sendBarcode(code) {
@@ -303,6 +305,8 @@
     // ---- カメラ停止 ----
     function stopCamera() {
       _videoTrack = null;
+      _detector   = null;
+      if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null; }
       if (reader) {
         try { reader.reset(); } catch(e) {}
         reader = null;
@@ -314,7 +318,7 @@
       }
     }
 
-    // ---- オートフォーカス適用 ----
+    // ---- オートフォーカス適用（ZXing fallback 用） ----
     function applyAutofocus(track) {
       if (!track || !track.getCapabilities) return;
       var caps = track.getCapabilities();
@@ -329,7 +333,6 @@
       ring.style.left = e.clientX + 'px';
       ring.style.top  = e.clientY + 'px';
       ring.style.display = 'block';
-      // アニメーションをリセットして再生
       ring.style.animation = 'none';
       ring.offsetWidth; // reflow
       ring.style.animation = '';
@@ -337,7 +340,6 @@
 
       if (!_videoTrack) return;
       var caps = _videoTrack.getCapabilities ? _videoTrack.getCapabilities() : {};
-      // single-shot でピントを合わせ直してから continuous に戻す
       if (caps.focusMode && caps.focusMode.includes('single-shot')) {
         _videoTrack.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] })
           .then(function() {
@@ -352,7 +354,20 @@
       }
     });
 
-    // ---- カメラ起動 ----
+    // ---- エラー表示ヘルパー ----
+    function handleCameraError(err) {
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setStatus('カメラへのアクセスが拒否されました。ブラウザの設定でカメラを許可してください', 'error');
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        setStatus('カメラが見つかりません', 'error');
+      } else if (err.name === 'NotReadableError') {
+        setStatus('カメラが他のアプリに使用中です', 'error');
+      } else {
+        setStatus('カメラを起動できませんでした: ' + (err.message || err.name), 'error');
+      }
+    }
+
+    // ---- カメラ起動（振り分け） ----
     function startScanner() {
       var video = document.getElementById('video');
 
@@ -362,9 +377,85 @@
         return;
       }
 
-      reader = new ZXing.BrowserMultiFormatReader();
+      if ('BarcodeDetector' in window) {
+        startNativePath(video);
+      } else {
+        startZxingPath(video);
+      }
+    }
 
-      // 低解像度にするとオートフォーカスが効きやすい
+    // ================================================================
+    // ネイティブ BarcodeDetector パス（Android Chrome 83+）
+    // OS標準のMLKitを使うのでフォーカスが自動で合う
+    // ================================================================
+    function startNativePath(video) {
+      navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width:  { ideal: 640 },
+          height: { ideal: 480 }
+        }
+      }).then(function(stream) {
+        _videoTrack = stream.getVideoTracks()[0] || null;
+        video.srcObject = stream;
+        return new Promise(function(resolve) {
+          video.onloadedmetadata = resolve;
+        });
+      }).then(function() {
+        return video.play();
+      }).then(function() {
+        return BarcodeDetector.getSupportedFormats();
+      }).then(function(formats) {
+        _detector = new BarcodeDetector({ formats: formats });
+        hideLoading();
+        setStatus('スキャン待機中 [ネイティブ]... バーコードを枠内に');
+        scheduleNativeScan(video);
+      }).catch(function(err) {
+        // カメラエラーはそのまま表示、BarcodeDetector初期化失敗ならデフォルトで再試行
+        if (err.name === 'NotAllowedError' || err.name === 'NotFoundError' || err.name === 'NotReadableError') {
+          hideLoading();
+          handleCameraError(err);
+        } else {
+          // getSupportedFormats 失敗 → デフォルトフォーマットで起動
+          try {
+            _detector = new BarcodeDetector();
+            hideLoading();
+            setStatus('スキャン待機中 [ネイティブ]... バーコードを枠内に');
+            scheduleNativeScan(video);
+          } catch(e) {
+            hideLoading();
+            setStatus('バーコード検出を起動できませんでした', 'error');
+          }
+        }
+      });
+    }
+
+    function scheduleNativeScan(video) {
+      _rafId = requestAnimationFrame(function() {
+        if (detected) return;
+        _detector.detect(video).then(function(codes) {
+          if (codes.length > 0) {
+            sendBarcode(codes[0].rawValue);
+          } else {
+            scheduleNativeScan(video);
+          }
+        }).catch(function() {
+          scheduleNativeScan(video);
+        });
+      });
+    }
+
+    // ================================================================
+    // ZXing フォールバックパス（iOS Safari / Firefox など）
+    // ================================================================
+    function startZxingPath(video) {
+      if (typeof ZXing === 'undefined' || !ZXing.BrowserMultiFormatReader) {
+        hideLoading();
+        setStatus('スキャナーライブラリが読み込めませんでした', 'error');
+        return;
+      }
+
+      reader = new ZXing.BrowserMultiFormatReader();
       reader.decodeFromConstraints(
         {
           video: {
@@ -375,31 +466,19 @@
         },
         video,
         function(result, err) {
-          if (result) {
-            sendBarcode(result.getText());
-          }
-          // err は毎フレーム発生するので無視（読み取れなかっただけ）
+          if (result) sendBarcode(result.getText());
+          // err は毎フレーム発生するので無視
         }
       ).then(function() {
         hideLoading();
-        setStatus('スキャン待機中... ぼやける場合は画面をタップ');
-
-        // ビデオトラックを保持してフォーカス制御に利用
+        setStatus('スキャン待機中 [ZXing]... ぼやける場合は画面をタップ');
         if (video.srcObject) {
           _videoTrack = video.srcObject.getVideoTracks()[0] || null;
           applyAutofocus(_videoTrack);
         }
       }).catch(function(err) {
         hideLoading();
-        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-          setStatus('カメラへのアクセスが拒否されました。ブラウザの設定でカメラを許可してください', 'error');
-        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-          setStatus('カメラが見つかりません', 'error');
-        } else if (err.name === 'NotReadableError') {
-          setStatus('カメラが他のアプリに使用中です', 'error');
-        } else {
-          setStatus('カメラを起動できませんでした: ' + (err.message || err.name), 'error');
-        }
+        handleCameraError(err);
       });
     }
 
@@ -422,13 +501,16 @@
     // ページを閉じるとき（ブラウザバックなど）にカメラを停止
     window.addEventListener('beforeunload', stopCamera);
 
-    // ---- ZXingロード後にスキャン開始 ----
-    // script タグで同期ロードしているので、DOM読み込み後に直接起動
+    // ---- スキャン開始 ----
     window.addEventListener('DOMContentLoaded', function() {
-      if (typeof ZXing !== 'undefined') {
+      if ('BarcodeDetector' in window) {
+        // ネイティブAPIが使えるので ZXing 不要 → 即時起動
+        startScanner();
+      } else if (typeof ZXing !== 'undefined') {
+        // ZXing がすでに読み込まれている
         startScanner();
       } else {
-        // CDNが読み込めなかった場合の再試行
+        // ZXing CDN の読み込みを待つ（最大 8 秒）
         var interval = setInterval(function() {
           if (typeof ZXing !== 'undefined') {
             clearInterval(interval);
@@ -437,8 +519,10 @@
         }, 200);
         setTimeout(function() {
           clearInterval(interval);
-          hideLoading();
-          setStatus('ライブラリの読み込みに失敗しました。通信環境を確認してください', 'error');
+          if (!detected) {
+            hideLoading();
+            setStatus('ライブラリの読み込みに失敗しました。通信環境を確認してください', 'error');
+          }
         }, 8000);
       }
     });
