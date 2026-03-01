@@ -309,7 +309,8 @@
           video: {
             facingMode: { ideal: 'environment' },
             width: { ideal: 1280 },
-            height: { ideal: 720 }
+            height: { ideal: 720 },
+            focusMode: { ideal: 'continuous' }
           }
         },
         video,
@@ -322,6 +323,17 @@
       ).then(function() {
         hideLoading();
         setStatus('スキャン待機中... バーコードを枠内に合わせてください');
+
+        // 連続オートフォーカスを有効化（非対応端末はスキップ）
+        if (video.srcObject) {
+          var track = video.srcObject.getVideoTracks()[0];
+          if (track && track.getCapabilities) {
+            var caps = track.getCapabilities();
+            if (caps.focusMode && caps.focusMode.includes('continuous')) {
+              track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(function() {});
+            }
+          }
+        }
       }).catch(function(err) {
         hideLoading();
         if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
