@@ -200,13 +200,39 @@
       animation: spin 0.8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---- 写真撮影ボタン（確実にフォーカスが合う手段） ---- */
+    #photo-capture-bar {
+      position: absolute;
+      bottom: 54px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      padding: 8px 16px;
+      z-index: 6;
+    }
+    #photo-btn {
+      background: rgba(76,175,80,0.88);
+      border: none;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      padding: 13px 28px;
+      border-radius: 32px;
+      cursor: pointer;
+      letter-spacing: 0.03em;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+    }
+    #photo-btn:active { background: rgba(56,142,60,0.95); }
+    #photo-btn:disabled { opacity: 0.6; }
   </style>
 </head>
 <body>
 
   <!-- ヘッダー -->
   <div id="header">
-    <h1>バーコードスキャナー <span style="font-size:11px;font-weight:400;opacity:0.6;">ver.2-0</span></h1>
+    <h1>バーコードスキャナー <span style="font-size:11px;font-weight:400;opacity:0.6;">ver.2-1</span></h1>
     <div style="display:flex;gap:8px;align-items:center;">
       <button id="torch-btn" onclick="toggleTorch()" style="display:none;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:18px;width:36px;height:36px;border-radius:50%;cursor:pointer;line-height:1;" title="ライト">&#x1F526;</button>
       <button id="close-btn" onclick="closeScanner()">閉じる</button>
@@ -235,7 +261,13 @@
         <div class="corner br"></div>
         <div id="scan-line"></div>
       </div>
-      <p id="overlay-hint">バーコードを枠内に合わせてください<br><span style="font-size:11px;opacity:0.7;">ぼやける場合は画面をタップ</span></p>
+      <p id="overlay-hint">枠内に合わせてください<br><span style="font-size:11px;opacity:0.7;">ぼやける場合は下の「写真で読み取る」を使用</span></p>
+    </div>
+
+    <!-- 写真で読み取るボタン（ネイティブカメラ → 確実にAFが効く） -->
+    <div id="photo-capture-bar">
+      <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none">
+      <button id="photo-btn" onclick="openNativeCamera()">&#x1F4F7; 写真で読み取る</button>
     </div>
 
     <!-- ステータス -->
@@ -410,6 +442,60 @@
       setTimeout(function() { ring.style.display = 'none'; }, 500);
       triggerSingleShotFocus();
     });
+
+    // ================================================================
+    // 写真で読み取る（ネイティブカメラ → 確実にAFが効く）
+    // ================================================================
+    function openNativeCamera() {
+      document.getElementById('photo-input').click();
+    }
+
+    document.getElementById('photo-input').addEventListener('change', function(e) {
+      var file = e.target.files && e.target.files[0];
+      if (!file) return;
+      e.target.value = ''; // 同じ写真で再試行できるようリセット
+      analyzePhotoFile(file);
+    });
+
+    function analyzePhotoFile(file) {
+      var btn = document.getElementById('photo-btn');
+      btn.disabled = true;
+      btn.textContent = '解析中...';
+      setStatus('写真を解析しています...');
+
+      createImageBitmap(file).then(function(bitmap) {
+        if (_detector) {
+          // BarcodeDetector で解析
+          return _detector.detect(bitmap).then(function(codes) {
+            bitmap.close();
+            return codes;
+          }, function(err) { bitmap.close(); throw err; });
+        } else if (typeof ZXing !== 'undefined' && ZXing.BrowserMultiFormatReader) {
+          // ZXing で解析（BarcodeDetector 非対応環境）
+          bitmap.close();
+          var url = URL.createObjectURL(file);
+          return new ZXing.BrowserMultiFormatReader()
+            .decodeFromImageUrl(url)
+            .then(function(r) { URL.revokeObjectURL(url); return [{ rawValue: r.getText() }]; })
+            .catch(function()  { URL.revokeObjectURL(url); return []; });
+        } else {
+          bitmap.close();
+          return [];
+        }
+      }).then(function(codes) {
+        btn.disabled = false;
+        btn.textContent = '\uD83D\uDCF7 写真で読み取る';
+        if (codes && codes.length > 0) {
+          sendBarcode(codes[0].rawValue);
+        } else {
+          setStatus('バーコードが見つかりません。バーコードだけを画面いっぱいに写して再撮影してください');
+        }
+      }).catch(function() {
+        btn.disabled = false;
+        btn.textContent = '\uD83D\uDCF7 写真で読み取る';
+        setStatus('解析に失敗しました。再度お試しください');
+      });
+    }
 
     // ---- エラー表示ヘルパー ----
     function handleCameraError(err) {
