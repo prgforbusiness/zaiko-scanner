@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>バーコードスキャナー - ZAIKO</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #000;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Kaku Gothic Pro', sans-serif;
+      height: 100dvh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---- ヘッダー ---- */
+    #header {
+      background: rgba(0,0,0,0.7);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+    #header h1 {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+    #close-btn {
+      background: rgba(255,255,255,0.15);
+      border: none;
+      color: #fff;
+      font-size: 13px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+    }
+    #close-btn:active { background: rgba(255,255,255,0.3); }
+
+    /* ---- カメラエリア ---- */
+    #camera-wrap {
+      position: relative;
+      flex: 1;
+      overflow: hidden;
+    }
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* ---- スキャン枠オーバーレイ ---- */
+    #overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    /* 四隅のフレーム */
+    #scan-frame {
+      position: relative;
+      width: min(70vw, 260px);
+      height: min(70vw, 260px);
+    }
+    .corner {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border-color: #4caf50;
+      border-style: solid;
+    }
+    .corner.tl { top: 0; left: 0;  border-width: 4px 0 0 4px; }
+    .corner.tr { top: 0; right: 0; border-width: 4px 4px 0 0; }
+    .corner.bl { bottom: 0; left: 0;  border-width: 0 0 4px 4px; }
+    .corner.br { bottom: 0; right: 0; border-width: 0 4px 4px 0; }
+
+    /* スキャンライン */
+    #scan-line {
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #4caf50, transparent);
+      animation: scan 2s ease-in-out infinite;
+      top: 50%;
+    }
+    @keyframes scan {
+      0%   { top: 8%;  opacity: 0; }
+      10%  { opacity: 1; }
+      90%  { opacity: 1; }
+      100% { top: 92%; opacity: 0; }
+    }
+
+    #overlay-hint {
+      margin-top: 20px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.8);
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+      text-align: center;
+      padding: 0 24px;
+    }
+
+    /* ---- ステータスメッセージ ---- */
+    #status {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0,0,0,0.75);
+      padding: 12px 16px;
+      font-size: 13px;
+      text-align: center;
+      min-height: 46px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #status.success { background: rgba(30,120,30,0.9); font-weight: 600; font-size: 15px; }
+    #status.error   { background: rgba(160,30,30,0.9); }
+
+    /* ---- 手動入力エリア ---- */
+    #manual-area {
+      background: rgba(0,0,0,0.85);
+      padding: 10px 16px;
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    #manual-input {
+      flex: 1;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 15px;
+      padding: 8px 12px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    #manual-input::placeholder { color: rgba(255,255,255,0.4); }
+    #manual-input:focus { border-color: #4caf50; }
+    #manual-btn {
+      background: #4caf50;
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 8px 16px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #manual-btn:active { background: #388e3c; }
+
+    /* ---- 初期ローディング ---- */
+    #loading {
+      position: absolute;
+      inset: 0;
+      background: #111;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 5;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255,255,255,0.2);
+      border-top-color: #4caf50;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <!-- ヘッダー -->
+  <div id="header">
+    <h1>バーコードスキャナー</h1>
+    <button id="close-btn" onclick="closeScanner()">閉じる</button>
+  </div>
+
+  <!-- カメラエリア -->
+  <div id="camera-wrap">
+    <!-- 初期ローディング -->
+    <div id="loading">
+      <div class="spinner"></div>
+      <div style="font-size:14px;color:rgba(255,255,255,0.7)">カメラを起動しています...</div>
+    </div>
+
+    <video id="video" autoplay playsinline muted></video>
+
+    <!-- スキャン枠オーバーレイ -->
+    <div id="overlay">
+      <div id="scan-frame">
+        <div class="corner tl"></div>
+        <div class="corner tr"></div>
+        <div class="corner bl"></div>
+        <div class="corner br"></div>
+        <div id="scan-line"></div>
+      </div>
+      <p id="overlay-hint">QRコード・バーコードを枠内に合わせてください</p>
+    </div>
+
+    <!-- ステータス -->
+    <div id="status">カメラを起動中...</div>
+  </div>
+
+  <!-- 手動入力 -->
+  <div id="manual-area">
+    <input type="text" id="manual-input" placeholder="バーコードを手動入力" inputmode="numeric">
+    <button id="manual-btn" onclick="sendManual()">送信</button>
+  </div>
+
+  <!-- ZXingライブラリ -->
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+  <script>
+    var reader = null;
+    var detected = false;
+
+    // ---- 結果をGASアプリに返す ----
+    function sendBarcode(code) {
+      if (detected) return;
+      detected = true;
+
+      setStatus('検出: ' + code, 'success');
+
+      // 振動フィードバック（スマホ）
+      if (navigator.vibrate) navigator.vibrate(150);
+
+      // GASアプリ（opener）にpostMessageで送信
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({ type: 'ZAIKO_BARCODE', code: code }, '*');
+        setTimeout(function() { window.close(); }, 800);
+      } else {
+        // 直接開いた場合（テスト用）: URLパラメータ経由でリダイレクト
+        var returnUrl = getReturnUrl();
+        if (returnUrl) {
+          setTimeout(function() {
+            window.location.href = returnUrl + (returnUrl.includes('?') ? '&' : '?') + 'barcode=' + encodeURIComponent(code);
+          }, 800);
+        } else {
+          setStatus('読み取り完了: ' + code + '\n（このウィンドウを閉じてください）', 'success');
+        }
+      }
+    }
+
+    // URLパラメータからリダイレクト先を取得
+    function getReturnUrl() {
+      var params = new URLSearchParams(window.location.search);
+      return params.get('return');
+    }
+
+    function closeScanner() {
+      stopCamera();
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({ type: 'ZAIKO_SCANNER_CLOSED' }, '*');
+      }
+      window.close();
+    }
+
+    // ---- ステータス表示 ----
+    function setStatus(msg, type) {
+      var el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = type || '';
+    }
+
+    // ---- カメラ停止 ----
+    function stopCamera() {
+      if (reader) {
+        try { reader.reset(); } catch(e) {}
+        reader = null;
+      }
+      var video = document.getElementById('video');
+      if (video && video.srcObject) {
+        video.srcObject.getTracks().forEach(function(t) { t.stop(); });
+        video.srcObject = null;
+      }
+    }
+
+    // ---- カメラ起動 ----
+    function startScanner() {
+      var video = document.getElementById('video');
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        hideLoading();
+        setStatus('このブラウザはカメラに対応していません', 'error');
+        return;
+      }
+
+      reader = new ZXing.BrowserMultiFormatReader();
+
+      reader.decodeFromConstraints(
+        {
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        },
+        video,
+        function(result, err) {
+          if (result) {
+            sendBarcode(result.getText());
+          }
+          // err は毎フレーム発生するので無視（読み取れなかっただけ）
+        }
+      ).then(function() {
+        hideLoading();
+        setStatus('スキャン待機中... バーコードを枠内に合わせてください');
+      }).catch(function(err) {
+        hideLoading();
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          setStatus('カメラへのアクセスが拒否されました。ブラウザの設定でカメラを許可してください', 'error');
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          setStatus('カメラが見つかりません', 'error');
+        } else if (err.name === 'NotReadableError') {
+          setStatus('カメラが他のアプリに使用中です', 'error');
+        } else {
+          setStatus('カメラを起動できませんでした: ' + (err.message || err.name), 'error');
+        }
+      });
+    }
+
+    function hideLoading() {
+      var el = document.getElementById('loading');
+      if (el) el.style.display = 'none';
+    }
+
+    // ---- 手動入力 ----
+    function sendManual() {
+      var val = document.getElementById('manual-input').value.trim();
+      if (!val) return;
+      sendBarcode(val);
+    }
+
+    document.getElementById('manual-input').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') sendManual();
+    });
+
+    // ページを閉じるとき（ブラウザバックなど）にカメラを停止
+    window.addEventListener('beforeunload', stopCamera);
+
+    // ---- ZXingロード後にスキャン開始 ----
+    // script タグで同期ロードしているので、DOM読み込み後に直接起動
+    window.addEventListener('DOMContentLoaded', function() {
+      if (typeof ZXing !== 'undefined') {
+        startScanner();
+      } else {
+        // CDNが読み込めなかった場合の再試行
+        var interval = setInterval(function() {
+          if (typeof ZXing !== 'undefined') {
+            clearInterval(interval);
+            startScanner();
+          }
+        }, 200);
+        setTimeout(function() {
+          clearInterval(interval);
+          hideLoading();
+          setStatus('ライブラリの読み込みに失敗しました。通信環境を確認してください', 'error');
+        }, 8000);
+      }
+    });
+  </script>
+</body>
+</html>
