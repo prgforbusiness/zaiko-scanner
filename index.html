@@ -8,30 +8,24 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      background: #000;
+      background: #1a1a2e;
       color: #fff;
       font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Kaku Gothic Pro', sans-serif;
-      height: 100dvh;
-      overflow: hidden;
+      min-height: 100dvh;
       display: flex;
       flex-direction: column;
     }
 
     /* ---- ヘッダー ---- */
     #header {
-      background: rgba(0,0,0,0.7);
-      padding: 10px 16px;
+      background: rgba(0,0,0,0.4);
+      padding: 12px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       flex-shrink: 0;
-      z-index: 10;
     }
-    #header h1 {
-      font-size: 15px;
-      font-weight: 600;
-      letter-spacing: 0.03em;
-    }
+    #header h1 { font-size: 15px; font-weight: 600; }
     #close-btn {
       background: rgba(255,255,255,0.15);
       border: none;
@@ -43,112 +37,75 @@
     }
     #close-btn:active { background: rgba(255,255,255,0.3); }
 
-    /* ---- カメラエリア ---- */
-    #camera-wrap {
-      position: relative;
+    /* ---- メインエリア ---- */
+    #main {
       flex: 1;
-      overflow: hidden;
-    }
-    #video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    /* ---- スキャン枠オーバーレイ ---- */
-    #overlay {
-      position: absolute;
-      inset: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      pointer-events: none;
-    }
-    /* 四隅のフレーム */
-    #scan-frame {
-      position: relative;
-      width: min(70vw, 260px);
-      height: min(70vw, 260px);
-    }
-    .corner {
-      position: absolute;
-      width: 28px;
-      height: 28px;
-      border-color: #4caf50;
-      border-style: solid;
-    }
-    .corner.tl { top: 0; left: 0;  border-width: 4px 0 0 4px; }
-    .corner.tr { top: 0; right: 0; border-width: 4px 4px 0 0; }
-    .corner.bl { bottom: 0; left: 0;  border-width: 0 0 4px 4px; }
-    .corner.br { bottom: 0; right: 0; border-width: 0 4px 4px 0; }
-
-    /* スキャンライン */
-    #scan-line {
-      position: absolute;
-      left: 4px;
-      right: 4px;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, #4caf50, transparent);
-      animation: scan 2s ease-in-out infinite;
-      top: 50%;
-    }
-    @keyframes scan {
-      0%   { top: 8%;  opacity: 0; }
-      10%  { opacity: 1; }
-      90%  { opacity: 1; }
-      100% { top: 92%; opacity: 0; }
-    }
-
-    #overlay-hint {
-      margin-top: 20px;
-      font-size: 13px;
-      color: rgba(255,255,255,0.8);
-      text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+      padding: 32px 24px;
+      gap: 24px;
       text-align: center;
-      padding: 0 24px;
     }
 
-    /* タップフォーカスリング */
-    #focus-ring {
-      position: absolute;
-      width: 60px;
-      height: 60px;
-      border: 2px solid #fff;
-      border-radius: 50%;
-      pointer-events: none;
-      display: none;
-      transform: translate(-50%, -50%);
-      animation: focusPulse 0.4s ease-out forwards;
+    #scan-icon { font-size: 80px; line-height: 1; }
+
+    #instructions {
+      font-size: 15px;
+      color: rgba(255,255,255,0.85);
+      line-height: 1.7;
     }
-    @keyframes focusPulse {
-      0%   { opacity: 1; transform: translate(-50%, -50%) scale(1.4); }
-      100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+    #instructions .hint {
+      display: block;
+      margin-top: 6px;
+      font-size: 12px;
+      opacity: 0.6;
     }
 
-    /* ---- ステータスメッセージ ---- */
+    /* ---- スキャンボタン ---- */
+    #scan-btn {
+      background: #4caf50;
+      border: none;
+      color: #fff;
+      font-size: 18px;
+      font-weight: 700;
+      padding: 18px 0;
+      border-radius: 40px;
+      cursor: pointer;
+      width: 100%;
+      max-width: 340px;
+      letter-spacing: 0.04em;
+      box-shadow: 0 4px 20px rgba(76,175,80,0.45);
+      transition: transform 0.1s, background 0.15s;
+    }
+    #scan-btn:active  { background: #388e3c; transform: scale(0.97); }
+    #scan-btn:disabled { opacity: 0.55; pointer-events: none; }
+
+    /* ---- ステータス ---- */
     #status {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: rgba(0,0,0,0.75);
-      padding: 12px 16px;
-      font-size: 13px;
-      text-align: center;
-      min-height: 46px;
+      width: 100%;
+      max-width: 360px;
+      min-height: 52px;
+      font-size: 14px;
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
+      padding: 12px 16px;
+      text-align: center;
+      line-height: 1.55;
+      white-space: pre-wrap;
     }
-    #status.success { background: rgba(30,120,30,0.9); font-weight: 600; font-size: 15px; }
-    #status.error   { background: rgba(160,30,30,0.9); }
+    #status.info    { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.75); }
+    #status.success { background: rgba(30,120,30,0.85); font-weight: 700; font-size: 16px; }
+    #status.error   { background: rgba(180,40,40,0.75); }
+    #status.scanning { background: rgba(33,150,243,0.25); }
 
     /* ---- 手動入力エリア ---- */
     #manual-area {
-      background: rgba(0,0,0,0.85);
-      padding: 10px 16px;
+      background: rgba(0,0,0,0.35);
+      padding: 12px 16px;
       display: flex;
       gap: 8px;
       flex-shrink: 0;
@@ -156,15 +113,15 @@
     #manual-input {
       flex: 1;
       background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.3);
+      border: 1px solid rgba(255,255,255,0.25);
       border-radius: 8px;
       color: #fff;
       font-size: 15px;
-      padding: 8px 12px;
+      padding: 9px 12px;
       outline: none;
       -webkit-appearance: none;
     }
-    #manual-input::placeholder { color: rgba(255,255,255,0.4); }
+    #manual-input::placeholder { color: rgba(255,255,255,0.35); }
     #manual-input:focus { border-color: #4caf50; }
     #manual-btn {
       background: #4caf50;
@@ -173,105 +130,36 @@
       color: #fff;
       font-size: 14px;
       font-weight: 600;
-      padding: 8px 16px;
+      padding: 9px 18px;
       cursor: pointer;
       white-space: nowrap;
     }
     #manual-btn:active { background: #388e3c; }
-
-    /* ---- 初期ローディング ---- */
-    #loading {
-      position: absolute;
-      inset: 0;
-      background: #111;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      z-index: 5;
-    }
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border: 3px solid rgba(255,255,255,0.2);
-      border-top-color: #4caf50;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ---- 写真撮影ボタン（確実にフォーカスが合う手段） ---- */
-    #photo-capture-bar {
-      position: absolute;
-      bottom: 54px;
-      left: 0;
-      right: 0;
-      display: flex;
-      justify-content: center;
-      padding: 8px 16px;
-      z-index: 6;
-    }
-    #photo-btn {
-      background: rgba(76,175,80,0.88);
-      border: none;
-      color: #fff;
-      font-size: 15px;
-      font-weight: 700;
-      padding: 13px 28px;
-      border-radius: 32px;
-      cursor: pointer;
-      letter-spacing: 0.03em;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.5);
-    }
-    #photo-btn:active { background: rgba(56,142,60,0.95); }
-    #photo-btn:disabled { opacity: 0.6; }
   </style>
 </head>
 <body>
 
   <!-- ヘッダー -->
   <div id="header">
-    <h1>バーコードスキャナー <span style="font-size:11px;font-weight:400;opacity:0.6;">ver.2-1</span></h1>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <button id="torch-btn" onclick="toggleTorch()" style="display:none;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:18px;width:36px;height:36px;border-radius:50%;cursor:pointer;line-height:1;" title="ライト">&#x1F526;</button>
-      <button id="close-btn" onclick="closeScanner()">閉じる</button>
-    </div>
+    <h1>バーコードスキャナー <span style="font-size:11px;font-weight:400;opacity:0.55;">ver.3-0</span></h1>
+    <button id="close-btn" onclick="closeScanner()">閉じる</button>
   </div>
 
-  <!-- カメラエリア -->
-  <div id="camera-wrap">
-    <!-- 初期ローディング -->
-    <div id="loading">
-      <div class="spinner"></div>
-      <div style="font-size:14px;color:rgba(255,255,255,0.7)">カメラを起動しています...</div>
-    </div>
+  <!-- メイン -->
+  <div id="main">
+    <div id="scan-icon">&#x1F4F7;</div>
 
-    <video id="video" autoplay playsinline muted></video>
+    <p id="instructions">
+      バーコード・QRコードを撮影して読み取ります
+      <span class="hint">バーコード部分だけを画面いっぱいに写すと認識しやすくなります</span>
+    </p>
 
-    <!-- タップフォーカスリング -->
-    <div id="focus-ring"></div>
+    <!-- ネイティブカメラ起動用（capture="environment" でOSカメラが開く） -->
+    <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none">
 
-    <!-- スキャン枠オーバーレイ -->
-    <div id="overlay">
-      <div id="scan-frame">
-        <div class="corner tl"></div>
-        <div class="corner tr"></div>
-        <div class="corner bl"></div>
-        <div class="corner br"></div>
-        <div id="scan-line"></div>
-      </div>
-      <p id="overlay-hint">枠内に合わせてください<br><span style="font-size:11px;opacity:0.7;">ぼやける場合は下の「写真で読み取る」を使用</span></p>
-    </div>
+    <button id="scan-btn" onclick="openCamera()">&#x1F4F7;&nbsp;&nbsp;カメラで読み取る</button>
 
-    <!-- 写真で読み取るボタン（ネイティブカメラ → 確実にAFが効く） -->
-    <div id="photo-capture-bar">
-      <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none">
-      <button id="photo-btn" onclick="openNativeCamera()">&#x1F4F7; 写真で読み取る</button>
-    </div>
-
-    <!-- ステータス -->
-    <div id="status">カメラを起動中...</div>
+    <div id="status" class="info">カメラボタンを押してバーコードを撮影してください</div>
   </div>
 
   <!-- 手動入力 -->
@@ -280,442 +168,123 @@
     <button id="manual-btn" onclick="sendManual()">送信</button>
   </div>
 
-  <!-- ZXingライブラリ -->
+  <!-- ZXing（BarcodeDetector 非対応環境のフォールバック） -->
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
   <script>
-    var reader        = null;   // ZXing fallback
-    var detected      = false;
-    var _videoTrack   = null;
-    var _rafId        = null;   // video フレームスキャン用 rAF
-    var _scanTimer    = null;   // スチル撮影スキャン用タイマー
-    var _detector     = null;   // BarcodeDetector インスタンス
-    var _imageCapture = null;   // ImageCapture（スチル撮影でフォーカスを効かせる）
-    var _torchOn      = false;  // ライト状態
-    var _refocusTimer = null;   // 定期リフォーカス用タイマー
+    var _detector = null;
 
-    // ---- 連続確認カウンタ（誤読み防止） ----
-    var _lastRawCode    = '';
-    var _confirmCount   = 0;
-    var _CONFIRM_NEEDED = 2;
-    var _lastScanTime   = 0;
-    var _SCAN_INTERVAL  = 150;
-
-    // ---- 結果をGASアプリに返す ----
-    function sendBarcode(code) {
-      if (detected) return;
-      detected = true;
-
-      setStatus('検出: ' + code, 'success');
-
-      // 振動フィードバック（スマホ）
-      if (navigator.vibrate) navigator.vibrate(150);
-
-      // GASアプリ（opener）にpostMessageで送信
-      if (window.opener && !window.opener.closed) {
-        window.opener.postMessage({ type: 'ZAIKO_BARCODE', code: code }, '*');
-        setTimeout(function() { window.close(); }, 800);
-      } else {
-        // 直接開いた場合（テスト用）: URLパラメータ経由でリダイレクト
-        var returnUrl = getReturnUrl();
-        if (returnUrl) {
-          setTimeout(function() {
-            window.location.href = returnUrl + (returnUrl.includes('?') ? '&' : '?') + 'barcode=' + encodeURIComponent(code);
-          }, 800);
-        } else {
-          setStatus('読み取り完了: ' + code + '\n（このウィンドウを閉じてください）', 'success');
-        }
+    // ---- BarcodeDetector を初期化（対応環境のみ） ----
+    window.addEventListener('DOMContentLoaded', function() {
+      if ('BarcodeDetector' in window) {
+        BarcodeDetector.getSupportedFormats().then(function(formats) {
+          _detector = new BarcodeDetector({ formats: formats });
+        }).catch(function() {
+          try { _detector = new BarcodeDetector(); } catch(e) {}
+        });
       }
-    }
-
-    // URLパラメータからリダイレクト先を取得
-    function getReturnUrl() {
-      var params = new URLSearchParams(window.location.search);
-      return params.get('return');
-    }
-
-    function closeScanner() {
-      stopCamera();
-      if (window.opener && !window.opener.closed) {
-        window.opener.postMessage({ type: 'ZAIKO_SCANNER_CLOSED' }, '*');
-      }
-      window.close();
-    }
-
-    // ---- ステータス表示 ----
-    function setStatus(msg, type) {
-      var el = document.getElementById('status');
-      el.textContent = msg;
-      el.className = type || '';
-    }
-
-    // ---- カメラ停止 ----
-    function stopCamera() {
-      if (_refocusTimer) { clearInterval(_refocusTimer); _refocusTimer = null; }
-      if (_scanTimer)    { clearTimeout(_scanTimer);     _scanTimer    = null; }
-      if (_torchOn && _videoTrack) {
-        try { _videoTrack.applyConstraints({ advanced: [{ torch: false }] }); } catch(e) {}
-        _torchOn = false;
-      }
-      _videoTrack   = null;
-      _detector     = null;
-      _imageCapture = null;
-      if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null; }
-      if (reader) {
-        try { reader.reset(); } catch(e) {}
-        reader = null;
-      }
-      var video = document.getElementById('video');
-      if (video && video.srcObject) {
-        video.srcObject.getTracks().forEach(function(t) { t.stop(); });
-        video.srcObject = null;
-      }
-    }
-
-    // ---- ライト（トーチ）トグル ----
-    function toggleTorch() {
-      if (!_videoTrack) return;
-      var caps = _videoTrack.getCapabilities ? _videoTrack.getCapabilities() : {};
-      if (!caps.torch) return;
-      _torchOn = !_torchOn;
-      _videoTrack.applyConstraints({ advanced: [{ torch: _torchOn }] }).then(function() {
-        var btn = document.getElementById('torch-btn');
-        btn.style.background = _torchOn ? 'rgba(255,220,0,0.5)' : 'rgba(255,255,255,0.15)';
-        // ON→OFF の瞬間にカメラがリフォーカスする機種が多い
-        if (!_torchOn) triggerSingleShotFocus();
-      }).catch(function() {});
-    }
-
-    // ---- single-shot フォーカスを1回発火してから continuous に戻す ----
-    function triggerSingleShotFocus() {
-      if (!_videoTrack) return;
-      var caps = _videoTrack.getCapabilities ? _videoTrack.getCapabilities() : {};
-      if (caps.focusMode && caps.focusMode.includes('single-shot')) {
-        _videoTrack.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] })
-          .then(function() {
-            if (caps.focusMode.includes('continuous')) {
-              setTimeout(function() {
-                _videoTrack && _videoTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(function() {});
-              }, 400);
-            }
-          }).catch(function() {});
-      } else if (caps.focusMode && caps.focusMode.includes('continuous')) {
-        _videoTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(function() {});
-      }
-    }
-
-    // ---- 定期自動リフォーカス（2.5秒ごと） ----
-    function startAutoRefocus() {
-      if (_refocusTimer) clearInterval(_refocusTimer);
-      _refocusTimer = setInterval(function() {
-        if (!_videoTrack || detected) return;
-        triggerSingleShotFocus();
-      }, 2500);
-    }
-
-    // ---- トーチボタンを表示（対応している場合のみ） ----
-    function showTorchButtonIfSupported() {
-      if (!_videoTrack) return;
-      var caps = _videoTrack.getCapabilities ? _videoTrack.getCapabilities() : {};
-      if (caps.torch) {
-        document.getElementById('torch-btn').style.display = 'block';
-      }
-    }
-
-    // ---- オートフォーカス適用（ZXing fallback 用） ----
-    function applyAutofocus(track) {
-      if (!track || !track.getCapabilities) return;
-      var caps = track.getCapabilities();
-      if (caps.focusMode && caps.focusMode.includes('continuous')) {
-        track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(function() {});
-      }
-    }
-
-    // ---- タップでフォーカス再調整 ----
-    document.getElementById('camera-wrap').addEventListener('click', function(e) {
-      var ring = document.getElementById('focus-ring');
-      ring.style.left = e.clientX + 'px';
-      ring.style.top  = e.clientY + 'px';
-      ring.style.display = 'block';
-      ring.style.animation = 'none';
-      ring.offsetWidth; // reflow
-      ring.style.animation = '';
-      setTimeout(function() { ring.style.display = 'none'; }, 500);
-      triggerSingleShotFocus();
     });
 
-    // ================================================================
-    // 写真で読み取る（ネイティブカメラ → 確実にAFが効く）
-    // ================================================================
-    function openNativeCamera() {
+    // ---- ネイティブカメラを開く ----
+    function openCamera() {
       document.getElementById('photo-input').click();
     }
 
     document.getElementById('photo-input').addEventListener('change', function(e) {
       var file = e.target.files && e.target.files[0];
       if (!file) return;
-      e.target.value = ''; // 同じ写真で再試行できるようリセット
-      analyzePhotoFile(file);
+      e.target.value = ''; // 同じファイルで再試行できるようリセット
+      analyzePhoto(file);
     });
 
-    function analyzePhotoFile(file) {
-      var btn = document.getElementById('photo-btn');
-      btn.disabled = true;
-      btn.textContent = '解析中...';
-      setStatus('写真を解析しています...');
+    // ---- 写真を解析 ----
+    function analyzePhoto(file) {
+      setBtnState(true, '解析中...');
+      setStatus('読み取り中...', 'scanning');
 
-      createImageBitmap(file).then(function(bitmap) {
-        if (_detector) {
-          // BarcodeDetector で解析
+      if (_detector) {
+        // BarcodeDetector で解析
+        createImageBitmap(file).then(function(bitmap) {
           return _detector.detect(bitmap).then(function(codes) {
             bitmap.close();
             return codes;
-          }, function(err) { bitmap.close(); throw err; });
-        } else if (typeof ZXing !== 'undefined' && ZXing.BrowserMultiFormatReader) {
-          // ZXing で解析（BarcodeDetector 非対応環境）
-          bitmap.close();
-          var url = URL.createObjectURL(file);
-          return new ZXing.BrowserMultiFormatReader()
-            .decodeFromImageUrl(url)
-            .then(function(r) { URL.revokeObjectURL(url); return [{ rawValue: r.getText() }]; })
-            .catch(function()  { URL.revokeObjectURL(url); return []; });
-        } else {
-          bitmap.close();
-          return [];
-        }
-      }).then(function(codes) {
-        btn.disabled = false;
-        btn.textContent = '\uD83D\uDCF7 写真で読み取る';
-        if (codes && codes.length > 0) {
-          sendBarcode(codes[0].rawValue);
-        } else {
-          setStatus('バーコードが見つかりません。バーコードだけを画面いっぱいに写して再撮影してください');
-        }
-      }).catch(function() {
-        btn.disabled = false;
-        btn.textContent = '\uD83D\uDCF7 写真で読み取る';
-        setStatus('解析に失敗しました。再度お試しください');
-      });
-    }
-
-    // ---- エラー表示ヘルパー ----
-    function handleCameraError(err) {
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setStatus('カメラへのアクセスが拒否されました。ブラウザの設定でカメラを許可してください', 'error');
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        setStatus('カメラが見つかりません', 'error');
-      } else if (err.name === 'NotReadableError') {
-        setStatus('カメラが他のアプリに使用中です', 'error');
-      } else {
-        setStatus('カメラを起動できませんでした: ' + (err.message || err.name), 'error');
-      }
-    }
-
-    // ---- カメラ起動（振り分け） ----
-    function startScanner() {
-      var video = document.getElementById('video');
-
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        hideLoading();
-        setStatus('このブラウザはカメラに対応していません', 'error');
-        return;
-      }
-
-      if ('BarcodeDetector' in window) {
-        startNativePath(video);
-      } else {
-        startZxingPath(video);
-      }
-    }
-
-    // ================================================================
-    // ネイティブ BarcodeDetector パス（Android Chrome 83+）
-    // OS標準のMLKitを使うのでフォーカスが自動で合う
-    // ================================================================
-    function startNativePath(video) {
-      navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-          width:  { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      }).then(function(stream) {
-        _videoTrack = stream.getVideoTracks()[0] || null;
-        video.srcObject = stream;
-
-        // ImageCapture が使える場合はスチル撮影モードでフォーカスを解決
-        if (_videoTrack && window.ImageCapture) {
-          try { _imageCapture = new ImageCapture(_videoTrack); } catch(e) {}
-        }
-
-        return new Promise(function(resolve) {
-          video.onloadedmetadata = resolve;
-        });
-      }).then(function() {
-        return video.play();
-      }).then(function() {
-        return BarcodeDetector.getSupportedFormats();
-      }).then(function(formats) {
-        _detector = new BarcodeDetector({ formats: formats });
-        hideLoading();
-        showTorchButtonIfSupported();
-        if (_imageCapture) {
-          // ★ スチル撮影モード: takePhoto() がシャッターごとにAFを効かせる
-          setStatus('スキャン待機中 [スチル]... バーコードを枠内に合わせてください');
-          schedulePhotoScan();
-        } else {
-          // フォールバック: video フレーム解析
-          setStatus('スキャン待機中 [ネイティブ]... バーコードを枠内に');
-          triggerSingleShotFocus();
-          startAutoRefocus();
-          scheduleNativeScan(video);
-        }
-      }).catch(function(err) {
-        if (err.name === 'NotAllowedError' || err.name === 'NotFoundError' || err.name === 'NotReadableError') {
-          hideLoading();
-          handleCameraError(err);
-        } else {
-          try {
-            _detector = new BarcodeDetector();
-            hideLoading();
-            showTorchButtonIfSupported();
-            if (_imageCapture) {
-              setStatus('スキャン待機中 [スチル]... バーコードを枠内に合わせてください');
-              schedulePhotoScan();
-            } else {
-              setStatus('スキャン待機中 [ネイティブ]... バーコードを枠内に');
-              triggerSingleShotFocus();
-              startAutoRefocus();
-              scheduleNativeScan(video);
-            }
-          } catch(e) {
-            hideLoading();
-            setStatus('バーコード検出を起動できませんでした', 'error');
-          }
-        }
-      });
-    }
-
-    // ================================================================
-    // スチル撮影スキャン（ImageCapture.takePhoto() でAFを強制適用）
-    // ================================================================
-    function schedulePhotoScan() {
-      if (detected || !_imageCapture || !_detector) return;
-      _imageCapture.takePhoto().then(function(blob) {
-        return createImageBitmap(blob);
-      }).then(function(bitmap) {
-        // 検出後すぐに bitmap を解放してメモリを節約
-        return _detector.detect(bitmap).then(function(codes) {
-          bitmap.close();
-          return codes;
-        }, function(err) {
-          bitmap.close();
-          throw err;
-        });
-      }).then(function(codes) {
-        if (detected) return;
-        if (codes.length > 0) {
-          var code = codes[0].rawValue;
-          if (code === _lastRawCode) {
-            _confirmCount++;
-            if (_confirmCount >= _CONFIRM_NEEDED) {
-              sendBarcode(code);
-              return;
-            }
+          }, function(err) {
+            bitmap.close();
+            throw err;
+          });
+        }).then(function(codes) {
+          setBtnState(false);
+          if (codes && codes.length > 0) {
+            sendBarcode(codes[0].rawValue);
           } else {
-            _lastRawCode  = code;
-            _confirmCount = 1;
+            setStatus('バーコードが見つかりませんでした\nバーコード部分だけを大きく撮影して再試行してください', 'error');
           }
-        } else {
-          _lastRawCode  = '';
-          _confirmCount = 0;
-        }
-        _scanTimer = setTimeout(schedulePhotoScan, 300);
-      }).catch(function() {
-        if (!detected) _scanTimer = setTimeout(schedulePhotoScan, 500);
-      });
-    }
-
-    function scheduleNativeScan(video) {
-      _rafId = requestAnimationFrame(function(timestamp) {
-        if (detected) return;
-
-        // スキャン間隔を制限（ブレたフレームを拾いにくくする）
-        if (timestamp - _lastScanTime < _SCAN_INTERVAL) {
-          scheduleNativeScan(video);
-          return;
-        }
-        _lastScanTime = timestamp;
-
-        _detector.detect(video).then(function(codes) {
-          if (codes.length > 0) {
-            var code = codes[0].rawValue;
-            if (code === _lastRawCode) {
-              // 同じコードが連続検出 → カウントアップ
-              _confirmCount++;
-              if (_confirmCount >= _CONFIRM_NEEDED) {
-                sendBarcode(code);
-                return;
-              }
-            } else {
-              // 異なるコード → カウンタリセット
-              _lastRawCode  = code;
-              _confirmCount = 1;
-            }
-          } else {
-            // 何も検出されなかったらカウンタリセット
-            _lastRawCode  = '';
-            _confirmCount = 0;
-          }
-          scheduleNativeScan(video);
         }).catch(function() {
-          scheduleNativeScan(video);
+          setBtnState(false);
+          setStatus('解析に失敗しました。再度お試しください', 'error');
         });
-      });
-    }
 
-    // ================================================================
-    // ZXing フォールバックパス（iOS Safari / Firefox など）
-    // ================================================================
-    function startZxingPath(video) {
-      if (typeof ZXing === 'undefined' || !ZXing.BrowserMultiFormatReader) {
-        hideLoading();
-        setStatus('スキャナーライブラリが読み込めませんでした', 'error');
-        return;
+      } else if (typeof ZXing !== 'undefined' && ZXing.BrowserMultiFormatReader) {
+        // ZXing フォールバック
+        var url = URL.createObjectURL(file);
+        new ZXing.BrowserMultiFormatReader()
+          .decodeFromImageUrl(url)
+          .then(function(result) {
+            URL.revokeObjectURL(url);
+            setBtnState(false);
+            sendBarcode(result.getText());
+          })
+          .catch(function() {
+            URL.revokeObjectURL(url);
+            setBtnState(false);
+            setStatus('バーコードが見つかりませんでした\nバーコード部分だけを大きく撮影して再試行してください', 'error');
+          });
+
+      } else {
+        setBtnState(false);
+        setStatus('スキャナーが初期化されていません。ページを再読み込みしてください', 'error');
       }
-
-      reader = new ZXing.BrowserMultiFormatReader();
-      reader.decodeFromConstraints(
-        {
-          video: {
-            facingMode: { ideal: 'environment' },
-            width:  { ideal: 1280 },
-            height: { ideal: 720 }
-          }
-        },
-        video,
-        function(result, err) {
-          if (result) sendBarcode(result.getText());
-          // err は毎フレーム発生するので無視
-        }
-      ).then(function() {
-        hideLoading();
-        setStatus('スキャン待機中 [ZXing]... ぼやける場合は画面をタップ');
-        if (video.srcObject) {
-          _videoTrack = video.srcObject.getVideoTracks()[0] || null;
-          applyAutofocus(_videoTrack);
-          triggerSingleShotFocus();
-          startAutoRefocus();
-          showTorchButtonIfSupported();
-        }
-      }).catch(function(err) {
-        hideLoading();
-        handleCameraError(err);
-      });
     }
 
-    function hideLoading() {
-      var el = document.getElementById('loading');
-      if (el) el.style.display = 'none';
+    // ---- ボタン状態管理 ----
+    function setBtnState(disabled, label) {
+      var btn = document.getElementById('scan-btn');
+      btn.disabled = !!disabled;
+      btn.innerHTML = disabled
+        ? (label || '解析中...')
+        : '&#x1F4F7;&nbsp;&nbsp;カメラで読み取る';
+    }
+
+    // ---- 結果をGASアプリに返す ----
+    function sendBarcode(code) {
+      setStatus('検出: ' + code, 'success');
+      if (navigator.vibrate) navigator.vibrate(150);
+
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({ type: 'ZAIKO_BARCODE', code: code }, '*');
+        setTimeout(function() { window.close(); }, 1000);
+      } else {
+        var returnUrl = new URLSearchParams(window.location.search).get('return');
+        if (returnUrl) {
+          setTimeout(function() {
+            window.location.href = returnUrl +
+              (returnUrl.includes('?') ? '&' : '?') +
+              'barcode=' + encodeURIComponent(code);
+          }, 1000);
+        }
+      }
+    }
+
+    function closeScanner() {
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({ type: 'ZAIKO_SCANNER_CLOSED' }, '*');
+      }
+      window.close();
+    }
+
+    function setStatus(msg, type) {
+      var el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = type || 'info';
     }
 
     // ---- 手動入力 ----
@@ -727,35 +296,6 @@
 
     document.getElementById('manual-input').addEventListener('keydown', function(e) {
       if (e.key === 'Enter') sendManual();
-    });
-
-    // ページを閉じるとき（ブラウザバックなど）にカメラを停止
-    window.addEventListener('beforeunload', stopCamera);
-
-    // ---- スキャン開始 ----
-    window.addEventListener('DOMContentLoaded', function() {
-      if ('BarcodeDetector' in window) {
-        // ネイティブAPIが使えるので ZXing 不要 → 即時起動
-        startScanner();
-      } else if (typeof ZXing !== 'undefined') {
-        // ZXing がすでに読み込まれている
-        startScanner();
-      } else {
-        // ZXing CDN の読み込みを待つ（最大 8 秒）
-        var interval = setInterval(function() {
-          if (typeof ZXing !== 'undefined') {
-            clearInterval(interval);
-            startScanner();
-          }
-        }, 200);
-        setTimeout(function() {
-          clearInterval(interval);
-          if (!detected) {
-            hideLoading();
-            setStatus('ライブラリの読み込みに失敗しました。通信環境を確認してください', 'error');
-          }
-        }, 8000);
-      }
     });
   </script>
 </body>
